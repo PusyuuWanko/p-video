@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>p-video.js デモ</title>
+  <script src="../p-video.js"></script>
+  <style>
+    body { margin: 0; padding: 24px 16px 48px; background: #f4f6f8; color: #1f2933; font-family: system-ui, sans-serif; line-height: 1.6; }
+    main { max-width: 980px; margin: 0 auto; }
+    h1 { margin-top: 0; }
+    section { margin: 32px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+    code { background: #e4e7eb; padding: 1px 6px; border-radius: 4px; }
+    /* ページ側の button 指定は、プレイヤーの中には届きません(Shadow DOM)。 */
+    button { font: inherit; padding: 6px 14px; margin: 8px 6px 0 0; border: 2px solid #1f2933; border-radius: 6px; background: #fff; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>p-video.js デモ</h1>
+    <p>依存なし・1ファイルで動く動画プレイヤーです。このページは <code>../p-video.js</code> を読み込んでいるだけです。</p>
+
+    <section>
+      <h2>基本</h2>
+      <p><code>&lt;p-video src="landscape.mp4"&gt;&lt;/p-video&gt;</code></p>
+      <p-video id="main" src="landscape.mp4"></p-video>
+      <button type="button" id="play">el.play()</button>
+      <button type="button" id="pause">el.pause()</button>
+      <button type="button" id="jump">el.currentTime = 5</button>
+    </section>
+
+    <section>
+      <h2>色(color 属性)</h2>
+      <div class="grid">
+        <p-video src="landscape.mp4" color="#ff3d6e"></p-video>
+        <p-video src="landscape.mp4" color="hsl(45 100% 50%)"></p-video>
+        <p-video src="landscape.mp4" color="#3ea6ff"></p-video>
+      </div>
+    </section>
+
+    <section>
+      <h2>帯で比率を保つ</h2>
+      <p>枠はいつも 16:9 です。縦長の動画は左右に帯が付きます。枠の比率は <code>--p-video-ratio</code> で変えられます。</p>
+      <div class="grid">
+        <p-video src="portrait.mp4"></p-video>
+        <p-video src="portrait.mp4" style="--p-video-ratio: 1 / 1"></p-video>
+        <p-video src="landscape.mp4" style="--p-video-ratio: 4 / 3"></p-video>
+      </div>
+    </section>
+
+    <section lang="en">
+      <h2>English labels</h2>
+      <p>Labels switch to English when the nearest <code>lang</code> is not Japanese.</p>
+      <p-video src="landscape.mp4" style="max-width: 480px"></p-video>
+    </section>
+  </main>
+
+  <script>
+    const main = document.getElementById("main");
+    document.getElementById("play").addEventListener("click", () => main.play());
+    document.getElementById("pause").addEventListener("click", () => main.pause());
+    document.getElementById("jump").addEventListener("click", () => { main.currentTime = 5; });
+  </script>
+</body>
+</html>
