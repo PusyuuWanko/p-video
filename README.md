@@ -9,6 +9,8 @@
 > or stretched. Its UI lives in a Shadow DOM, so your page's CSS cannot break it.
 > If a file's aspect ratio metadata is wrong, viewers can pick "square pixels", a fixed ratio
 > or a fine-tuned ratio from the settings menu (remembered per video), or you can set `aspect`.
+> An "Info" panel in the settings shows the version, copyright, network / buffering state,
+> the size in the file vs. the actual pixels and dropped frames, and can copy them as text.
 > Accent color via the `color` attribute, keyboard shortcuts, picture-in-picture,
 > full screen, playback speed, loop. Japanese / English labels. MIT licensed.
 
@@ -40,7 +42,11 @@
 - **映像の形** — MP4 に書かれた縦横比が狂っていて映像が伸びて見える動画のために、設定メニューの「映像の形」から
   ファイルどおり / 画素どおり(実際の画素数の比率。VideoFrame 対応ブラウザのみ) / 16:9・4:3・1:1・3:4・9:16 /
   つまみで細かく合わせる、を選べます。選んだ形は見る人のブラウザに動画ごとに覚えます。
+- **情報** — 設定メニューの「情報」に、バージョン・著作権とライセンス・通信状態・読み込み済みの量・準備状態・
+  ファイルの指定する大きさと実際の画素数・落ちたコマ数を出します。開いている間は出来事のたびに書き換わり、
+  「情報をコピー」で問い合わせに貼れる文字としてコピーできます。動画の URL は出しません。
 - **日本語 / 英語** — 近い祖先の `lang` が `ja` なら日本語、それ以外は英語で表示します。
+  見る人は設定メニューの「言語 / Language」で 自動・日本語・English を選べます(ブラウザに覚えます)。
 
 ## 属性
 

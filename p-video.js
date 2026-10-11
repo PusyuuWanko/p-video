@@ -1,6 +1,6 @@
 /*****************************************
   *----------------------------------
-  |  ThisScriptVersion: 2.5.0     |
+  |  ThisScriptVersion: 2.6.0     |
   |  © ISAMI ABE                  |
   |  LastUpdate: 2026-10-11       |
   |  License: MIT License         |
@@ -47,7 +47,14 @@
 
 表示する言葉:
   置いたページ(または近い祖先)の lang が ja で始まれば日本語、それ以外は英語です。
+  見る人は設定メニューの「言語 / Language」で 自動・日本語・English を選べます(ブラウザに覚えます)。
   変えたいときは、要素を作る前に PVideo.labels.ja.play = "..." のように差し替えてください。
+
+設定メニューの「情報」:
+  バージョン・著作権とライセンス・通信状態・読み込み済みの量・準備状態・ファイルの指定する大きさ・
+  実際の画素数・落ちたコマ数を出します。表示中は動画の出来事のたびに書き換わります。
+  「情報をコピー」で、問い合わせに貼れる形の文字としてコピーできます。
+  【動画の URL(src)は出さないこと】置き場所のフォルダ名や、URL に付けた札が見えてしまうためです。
 
 ■ 帯で比率を保つ仕組み(YouTube のプレイヤーと同じ形)
   1. 枠の縦横比は、動画が何であっても決まった比率(既定 16:9、--p-video-ratio)です。
@@ -64,6 +71,9 @@
    歪ませて正しい形へ戻すためです。帯で吸収する約束は同じで、箱の外が帯になります。
    【このとき動画の上の操作は .stage で受けること】<video> が枠より小さくなり、帯の上を押しても
    <video> には届かないためです。
+  【動画を canvas へ描き写す作りに戻さないこと】以前はそうしていて、canvas の置き方が外のCSSや
+   ずらしの指定に左右され、映像の上下が切れていました。再生中ずっと描き写す分の負荷もかかり、
+   一時停止中は何も映りませんでした。
 
 ■ 映像の形(ファイルの縦横比が狂っている動画のため)
   ブラウザは MP4 に書かれた表示用の大きさ(画素の縦横比などを含む)で映像の形を決めます。ここが
@@ -75,9 +85,6 @@
     細かく合わせる … つまみで横の伸び縮みを自由に決める
   から選べます。選んだものは見る人のブラウザに動画の src ごとに覚えます(localStorage。使えなければ覚えないだけ)。
   【選んだものを置く側の aspect 属性より優先すること】置く側の指定が間違っていても、見る人が直せるようにするためです。
-  【動画を canvas へ描き写す作りに戻さないこと】以前はそうしていて、canvas の置き方が外のCSSや
-   ずらしの指定に左右され、映像の上下が切れていました。再生中ずっと描き写す分の負荷もかかり、
-   一時停止中は何も映りませんでした。
 
 ■ 外のCSSに崩されないこと(単体で動くための約束)
   中身は Shadow DOM に入れ、見た目はこのファイルの中のCSSだけで決めます。置く側のページの
@@ -101,7 +108,17 @@
       settings: "設定", speed: "再生速度", loop: "ループ", on: "オン", off: "オフ", normal: "標準",
       seek: "再生位置", player: "動画プレイヤー", pipActive: "ピクチャーインピクチャーで再生中",
       error: "動画を読み込めませんでした", seconds: "{n}秒",
-      aspect: "映像の形", aspectAuto: "ファイルどおり", aspectPixel: "画素どおり", aspectFine: "細かく合わせる"
+      aspect: "映像の形", aspectAuto: "ファイルどおり", aspectPixel: "画素どおり", aspectFine: "細かく合わせる",
+      language: "言語 / Language", auto: "自動",
+      info: "情報", version: "バージョン", copyright: "著作権", network: "通信状態", buffered: "読み込み済み",
+      ready: "準備状態", fileSize: "ファイルの指定", pixelSize: "実際の画素", frames: "落ちたコマ",
+      copyInfo: "情報をコピー", copied: "コピーしました", unknown: "不明", ahead: "{n}秒先まで",
+      netEmpty: "未開始", netIdle: "待機中", netLoading: "読み込み中", netNoSource: "読み込めるファイルがありません",
+      netWaiting: "読み込み待ち(再生が止まっています)",
+      errAborted: "読み込みが中断されました", errNetwork: "通信エラー", errDecode: "ファイルを読み解けません",
+      errSource: "対応していない形式か、見つかりません",
+      ready0: "情報なし", ready1: "大きさ・長さのみ", ready2: "今のコマのみ", ready3: "少し先まで",
+      ready4: "最後まで再生できる見込み"
     },
     en: {
       play: "Play", pause: "Pause", mute: "Mute", unmute: "Unmute", volume: "Volume",
@@ -109,9 +126,28 @@
       settings: "Settings", speed: "Speed", loop: "Loop", on: "On", off: "Off", normal: "Normal",
       seek: "Seek", player: "Video player", pipActive: "Playing in picture-in-picture",
       error: "Could not load the video", seconds: "{n}s",
-      aspect: "Aspect ratio", aspectAuto: "As in file", aspectPixel: "Square pixels", aspectFine: "Fine-tune"
+      aspect: "Aspect ratio", aspectAuto: "As in file", aspectPixel: "Square pixels", aspectFine: "Fine-tune",
+      language: "言語 / Language", auto: "Auto",
+      info: "Info", version: "Version", copyright: "Copyright", network: "Network", buffered: "Buffered",
+      ready: "Ready state", fileSize: "Size in file", pixelSize: "Actual pixels", frames: "Dropped frames",
+      copyInfo: "Copy info", copied: "Copied", unknown: "Unknown", ahead: "{n}s ahead",
+      netEmpty: "Not started", netIdle: "Idle", netLoading: "Loading", netNoSource: "No playable file",
+      netWaiting: "Waiting for data (playback stalled)",
+      errAborted: "Loading was aborted", errNetwork: "Network error", errDecode: "Could not decode the file",
+      errSource: "Unsupported format or not found",
+      ready0: "No data", ready1: "Size and length only", ready2: "Current frame only", ready3: "A little ahead",
+      ready4: "Can likely play to the end"
     }
   };
+
+  // 情報の画面に出す版と著作権。【版は先頭の ThisScriptVersion と必ず同じにすること】
+  // ずれると、見る人が知らせてくれた版と実際の中身が食い違い、どの版の不具合か分からなくなります。
+  const VERSION = "2.6.0";
+  const COPYRIGHT = "© ISAMI ABE";
+  const LICENSE = "MIT License";
+  const HOMEPAGE = "https://github.com/PusyuuWanko/p-video";
+  // 見る人が選んだ言語を覚えておく localStorage の鍵。動画ごとではなく、すべてのプレイヤーで共通です。
+  const LANG_STORE = "p-video-lang";
 
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
   // 「映像の形」で選べる決まった比率。名前はそのまま表示にも使います。
@@ -258,7 +294,8 @@
     .volume:hover input, .volume:focus-within input { width: 70px; opacity: 1; margin: 0 6px 0 2px; }
 
     .menu {
-      position: absolute; right: 10px; bottom: 58px; min-width: 190px; max-height: calc(100% - 70px); overflow-y: auto;
+      position: absolute; right: 10px; bottom: 58px; min-width: 190px; max-width: calc(100% - 20px);
+      max-height: calc(100% - 70px); overflow-y: auto;
       padding: 6px; border-radius: 10px; background: rgba(28, 28, 28, 0.92);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display: none;
     }
@@ -270,6 +307,10 @@
     .menu button:hover, .menu button:focus-visible { background: rgba(255, 255, 255, 0.12); outline: none; }
     .menu .value { opacity: 0.7; }
     .menu button[aria-checked="true"] .label::before { content: "✓ "; color: var(--p-video-accent); }
+    .menu .inforow { display: flex; justify-content: space-between; gap: 16px; padding: 6px 12px; }
+    .menu .inforow .value { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .menu .home { display: block; padding: 6px 12px; color: var(--p-video-accent); font-size: 12px; overflow-wrap: anywhere; }
+    .menu .home:focus-visible { outline: 2px solid var(--p-video-accent); outline-offset: -2px; border-radius: 6px; }
     .menu .fine { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
     .menu .fine .head { display: flex; justify-content: space-between; gap: 16px; }
     .menu .fine input { width: 100%; margin: 0; accent-color: var(--p-video-accent); cursor: pointer; }
@@ -338,6 +379,10 @@
       // 映像の形。choice は "auto" / "pixel" / 比率の数(横÷縦)。pixelRatio は実際の画素数の比率(分からなければ 0)。
       this._aspectChoice = "auto";
       this._pixelRatio = 0;
+      // 実際の画素数の表示用("1920×1080")。分からなければ ""。情報の画面で使います。
+      this._pixelSize = "";
+      // 表示する言葉。"auto"(ページの lang に従う) / "ja" / "en"。見る人が設定で選びます。
+      this._lang = "auto";
       this._idleTimer = 0;
       this._menuView = "main";
       this._tap = null;
@@ -370,6 +415,7 @@
         this.removeAttribute("data-error");
         // 形は動画ごとに覚えているので、選び直しを読み込み、画素数も測り直します。
         this._pixelRatio = 0;
+        this._pixelSize = "";
         this._loadAspect();
       } else if (name === "aspect") {
         this._loadAspect();
@@ -450,6 +496,7 @@
      */
     _measurePixels() {
       this._pixelRatio = 0;
+      this._pixelSize = "";
       if (typeof VideoFrame !== "function") return;
       try {
         const frame = new VideoFrame(this._video);
@@ -457,9 +504,16 @@
         const width = rect ? rect.width : frame.codedWidth;
         const height = rect ? rect.height : frame.codedHeight;
         frame.close();
-        this._pixelRatio = (width > 0 && height > 0) ? width / height : 0;
+        if (width > 0 && height > 0) {
+          this._pixelRatio = width / height;
+          this._pixelSize = width + "×" + height;
+        } else {
+          this._pixelRatio = 0;
+          this._pixelSize = "";
+        }
       } catch (error) {
         this._pixelRatio = 0;
+        this._pixelSize = "";
       }
     }
 
@@ -495,18 +549,84 @@
     get duration() { return this._video ? this._video.duration : NaN; }
     get video() { return this._video || null; }
 
+    /**
+     * 表示する言語("ja" / "en")。見る人が選んでいればそれ、"auto" なら近い祖先の lang で決めます。
+     */
+    _language() {
+      let code;
+      if (this._lang === "ja" || this._lang === "en") {
+        code = this._lang;
+      } else {
+        const holder = this.closest("[lang]");
+        const lang = ((holder && holder.getAttribute("lang")) || "").toLowerCase();
+        code = (lang.indexOf("ja") === 0) ? "ja" : "en";
+      }
+      return code;
+    }
+
     _t(key) {
-      const holder = this.closest("[lang]");
-      const lang = ((holder && holder.getAttribute("lang")) || "").toLowerCase();
-      const table = PVideo.labels[lang.indexOf("ja") === 0 ? "ja" : "en"] || PVideo.labels.en;
+      const table = PVideo.labels[this._language()] || PVideo.labels.en;
       return table[key] || LABELS.en[key] || key;
+    }
+
+    /**
+     * 見る人が選んだ言語を読み込みます。読めない・覚えていないときは "auto" です。
+     * 【localStorage は try で囲むこと】(_loadAspect と同じ理由)
+     */
+    _loadLanguage() {
+      let saved = null;
+      try {
+        saved = window.localStorage.getItem(LANG_STORE);
+      } catch (error) {
+        saved = null;
+      }
+      this._lang = (saved === "ja" || saved === "en") ? saved : "auto";
+    }
+
+    /**
+     * 言語を選び直します。すべてのプレイヤーで共通に覚え、このプレイヤーの言葉を書き換えます。
+     * ほかのプレイヤーは次に読み込んだときから選んだ言語になります。
+     */
+    _chooseLanguage(lang) {
+      this._lang = lang;
+      try {
+        if (lang === "auto") {
+          window.localStorage.removeItem(LANG_STORE);
+        } else {
+          window.localStorage.setItem(LANG_STORE, lang);
+        }
+      } catch (error) {
+        // 覚えられないだけで、このプレイヤーの表示は切り替えます。
+      }
+      this._renderLabels();
+      this._renderState();
+    }
+
+    /**
+     * 状態で変わらない言葉(お知らせ・つまみの名前・ボタンの名前)を、今の言語で書き込みます。
+     * 状態で変わるもの(再生/一時停止など)は _renderState が書きます。
+     * 【言葉を足したら、組み立て時ではなくここで書くこと】言語を切り替えても古い言葉のまま残ります。
+     */
+    _renderLabels() {
+      const els = this._els;
+      if (this._ownLabel) this.setAttribute("aria-label", this._t("player"));
+      this._root.querySelector(".notice.pip").textContent = this._t("pipActive");
+      this._root.querySelector(".notice.error").textContent = this._t("error");
+      els.seek.setAttribute("aria-label", this._t("seek"));
+      els.volume.setAttribute("aria-label", this._t("volume"));
+      this._setButton(els.center, "play", this._t("play"));
+      this._setButton(els.settings, "settings", this._t("settings"));
+      this._setButton(els.pip, "pip", this._t("pip"));
     }
 
     _build() {
       const root = this.attachShadow({ mode: "open" });
       if (!this.hasAttribute("tabindex")) this.tabIndex = 0;
       if (!this.hasAttribute("role")) this.setAttribute("role", "region");
-      if (!this.hasAttribute("aria-label")) this.setAttribute("aria-label", this._t("player"));
+      // 置く側が aria-label を書いていなければこちらで書き、言語を変えたときも書き換えます。
+      // 置く側が書いたものは書き換えません。
+      this._ownLabel = !this.hasAttribute("aria-label");
+      this._loadLanguage();
 
       root.innerHTML =
         "<style>" + STYLE + "</style>" +
@@ -547,13 +667,7 @@
       };
       const els = this._els;
 
-      $(".notice.pip").textContent = this._t("pipActive");
-      $(".notice.error").textContent = this._t("error");
-      els.seek.setAttribute("aria-label", this._t("seek"));
-      els.volume.setAttribute("aria-label", this._t("volume"));
-      this._setButton(els.center, "play", this._t("play"));
-      this._setButton(els.settings, "settings", this._t("settings"));
-      this._setButton(els.pip, "pip", this._t("pip"));
+      this._renderLabels();
       els.pip.hidden = !(document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function");
 
       // 属性を <video> へ写します。
@@ -606,6 +720,13 @@
       video.addEventListener("enterpictureinpicture", () => this.setAttribute("data-pip", ""));
       video.addEventListener("leavepictureinpicture", () => this.removeAttribute("data-pip"));
       video.addEventListener("contextmenu", (event) => event.preventDefault());
+      // 情報の画面を開いているあいだは、通信や読み込みの出来事のたびに数字を書き換えます。
+      // 【この登録は上の data-waiting・data-error の付け外しより後に置くこと】同じ出来事では登録順に
+      //  呼ばれるため、先に置くと付け外しの前の状態を書いてしまい、表示が1つ遅れます。
+      ["loadstart", "loadedmetadata", "loadeddata", "progress", "suspend", "stalled", "waiting", "playing", "canplay",
+        "canplaythrough", "emptied", "error", "abort", "timeupdate", "durationchange"].forEach((type) => {
+        video.addEventListener(type, () => this._renderInfo());
+      });
     }
 
     _bindControls() {
@@ -677,8 +798,18 @@
           this._menuView = "main";
         } else if (action === "loop") {
           video.loop = !video.loop;
+        } else if (action === "lang-menu") {
+          this._menuView = "lang";
+        } else if (action === "lang") {
+          this._chooseLanguage(button.dataset.value);
+          this._menuView = "main";
+        } else if (action === "info-menu") {
+          this._menuView = "info";
+        } else if (action === "copy-info") {
+          this._copyInfo(button);
         }
-        if (action !== "") {
+        // コピーは押したボタンに「コピーしました」を出すので、描き直しません。
+        if (action !== "" && action !== "copy-info") {
           this._renderMenu();
           this._focusMenu();
         }
@@ -925,12 +1056,136 @@
           '<span class="value">' + formatRatio(current) + "</span></span>" +
           '<input type="range" min="' + (-FINE_RANGE) + '" max="' + FINE_RANGE + '" step="0.01" value="' + fineValue.toFixed(2) + '"' +
           ' aria-label="' + this._t("aspectFine") + '"></div>';
+      } else if (this._menuView === "lang") {
+        // 言語の名前は、どの言語で表示していてもその言語自身の書き方で出します(読めない言語に迷い込まないため)。
+        this._els.menu.innerHTML =
+          item("back", "‹ " + this._t("language"), "") +
+          [["auto", this._t("auto")], ["ja", "日本語"], ["en", "English"]].map((entry) =>
+            item("lang", entry[1], "", 'role="menuitemradio" data-value="' + entry[0] + '" aria-checked="' + (this._lang === entry[0]) + '"')
+          ).join("");
+      } else if (this._menuView === "info") {
+        // 値は _renderInfo が textContent で入れます(出来事のたびに描き直さず、そこだけ書き換えるため)。
+        this._els.menu.innerHTML =
+          item("back", "‹ " + this._t("info"), "") +
+          this._infoRows().map((row) =>
+            '<div class="inforow"><span class="label">' + row[1] + '</span><span class="value" data-info="' + row[0] + '"></span></div>'
+          ).join("") +
+          '<a class="home" href="' + HOMEPAGE + '" target="_blank" rel="noopener">' + HOMEPAGE.replace("https://", "") + "</a>" +
+          (navigator.clipboard ? item("copy-info", this._t("copyInfo"), "") : "");
+        this._renderInfo();
       } else {
+        let langLabel;
+        if (this._lang === "ja") {
+          langLabel = "日本語";
+        } else if (this._lang === "en") {
+          langLabel = "English";
+        } else {
+          langLabel = this._t("auto");
+        }
         this._els.menu.innerHTML =
           item("speed-menu", this._t("speed"), speedLabel(video.playbackRate) + " ›") +
           item("aspect-menu", this._t("aspect"), aspectLabel + " ›") +
-          item("loop", this._t("loop"), video.loop ? this._t("on") : this._t("off"), 'role="menuitemcheckbox" aria-checked="' + video.loop + '"');
+          item("loop", this._t("loop"), video.loop ? this._t("on") : this._t("off"), 'role="menuitemcheckbox" aria-checked="' + video.loop + '"') +
+          item("lang-menu", this._t("language"), langLabel + " ›") +
+          item("info-menu", this._t("info"), "v" + VERSION + " ›");
       }
+    }
+
+    /**
+     * 情報の画面の行を [鍵, 名前, 値] で返します。画面の表示とコピーの両方がこれを使います。
+     * 【行を足すときはここだけ足すこと】表示とコピーで中身が食い違わないようにするためです。
+     */
+    _infoRows() {
+      const video = this._video;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+
+      let network;
+      if (this.hasAttribute("data-error") && video.error) {
+        const code = video.error.code;
+        if (code === 1) {
+          network = this._t("errAborted");
+        } else if (code === 2) {
+          network = this._t("errNetwork");
+        } else if (code === 3) {
+          network = this._t("errDecode");
+        } else {
+          network = this._t("errSource");
+        }
+      } else if (this.hasAttribute("data-waiting")) {
+        network = this._t("netWaiting");
+      } else if (video.networkState === 0) {
+        network = this._t("netEmpty");
+      } else if (video.networkState === 1) {
+        network = this._t("netIdle");
+      } else if (video.networkState === 2) {
+        network = this._t("netLoading");
+      } else {
+        network = this._t("netNoSource");
+      }
+
+      // 読み込み済みは、全体に対する割合と、今の位置から先にどれだけあるか。
+      let bufferedTotal = 0;
+      let ahead = 0;
+      for (let i = 0; i < video.buffered.length; i++) {
+        const start = video.buffered.start(i);
+        const end = video.buffered.end(i);
+        bufferedTotal += end - start;
+        if (start <= video.currentTime && video.currentTime <= end) ahead = end - video.currentTime;
+      }
+      const buffered = (duration > 0)
+        ? Math.min(100, Math.round(bufferedTotal / duration * 100)) + "% · " + this._t("ahead").replace("{n}", String(Math.round(ahead)))
+        : this._t("unknown");
+
+      const fileSize = (video.videoWidth > 0 && video.videoHeight > 0)
+        ? video.videoWidth + "×" + video.videoHeight + " (" + formatRatio(video.videoWidth / video.videoHeight) + ")"
+        : this._t("unknown");
+      const pixelSize = (this._pixelSize !== "")
+        ? this._pixelSize + " (" + formatRatio(this._pixelRatio) + ")"
+        : this._t("unknown");
+
+      let frames;
+      if (typeof video.getVideoPlaybackQuality === "function") {
+        const quality = video.getVideoPlaybackQuality();
+        frames = quality.droppedVideoFrames + " / " + quality.totalVideoFrames;
+      } else {
+        frames = this._t("unknown");
+      }
+
+      return [
+        ["version", this._t("version"), "p-video " + VERSION],
+        ["copyright", this._t("copyright"), COPYRIGHT + " · " + LICENSE],
+        ["network", this._t("network"), network],
+        ["buffered", this._t("buffered"), buffered],
+        ["ready", this._t("ready"), this._t("ready" + video.readyState)],
+        ["fileSize", this._t("fileSize"), fileSize],
+        ["pixelSize", this._t("pixelSize"), pixelSize],
+        ["frames", this._t("frames"), frames]
+      ];
+    }
+
+    /**
+     * 情報の画面を開いていれば、値だけ書き換えます。開いていなければ何もしません
+     * (timeupdate のたびに呼ばれるので、閉じているときに計算しないため)。
+     */
+    _renderInfo() {
+      const menu = this._els.menu;
+      if (this._menuView !== "info" || !menu.classList.contains("open")) return;
+      this._infoRows().forEach((row) => {
+        const cell = menu.querySelector('[data-info="' + row[0] + '"]');
+        if (cell) cell.textContent = row[2];
+      });
+    }
+
+    /**
+     * 情報を「名前: 値」の行にしてコピーし、押したボタンに結果を出します。
+     * コピーできなかったとき(権限が無いなど)は、ボタンの表示を変えないだけにします。
+     */
+    _copyInfo(button) {
+      const text = this._infoRows().map((row) => row[1] + ": " + row[2]).join("\n");
+      Promise.resolve(navigator.clipboard.writeText(text)).then(() => {
+        const label = button.querySelector(".label");
+        if (label) label.textContent = this._t("copied");
+      }).catch(() => {});
     }
 
     _renderState() {
