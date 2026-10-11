@@ -7,6 +7,8 @@
 > Drop in one `<script>` and write `<p-video src="movie.mp4">`. The player keeps a fixed
 > 16:9 frame and letterboxes any video inside it (like YouTube), so nothing is ever cropped
 > or stretched. Its UI lives in a Shadow DOM, so your page's CSS cannot break it.
+> If a file's aspect ratio metadata is wrong, viewers can pick "square pixels", a fixed ratio
+> or a fine-tuned ratio from the settings menu (remembered per video), or you can set `aspect`.
 > Accent color via the `color` attribute, keyboard shortcuts, picture-in-picture,
 > full screen, playback speed, loop. Japanese / English labels. MIT licensed.
 
@@ -35,6 +37,9 @@
 - **キーボード** — Space・K 再生/一時停止、← → 5秒移動、↑ ↓ 音量、M 消音、F 全画面。
 - **ダブルクリック・ダブルタップ** — 動画の左1/3で10秒戻る、右1/3で10秒進む、まん中で全画面。
   左右は続けて押すほど10秒ずつ重ねて動きます(スマホのダブルタップでも同じです)。
+- **映像の形** — MP4 に書かれた縦横比が狂っていて映像が伸びて見える動画のために、設定メニューの「映像の形」から
+  ファイルどおり / 画素どおり(実際の画素数の比率。VideoFrame 対応ブラウザのみ) / 16:9・4:3・1:1・3:4・9:16 /
+  つまみで細かく合わせる、を選べます。選んだ形は見る人のブラウザに動画ごとに覚えます。
 - **日本語 / 英語** — 近い祖先の `lang` が `ja` なら日本語、それ以外は英語で表示します。
 
 ## 属性
@@ -46,6 +51,7 @@
 | `preload` | `none` / `metadata` / `auto`(既定 `metadata`) |
 | `loop` `muted` `autoplay` | `<video>` と同じ意味 |
 | `color` | プレイヤーの色(既定は緑 `#22c55e`)。CSS の色ならどれでも書けます。色として読めない値は無視します |
+| `aspect` | 映像の形の初期値。`auto`(ファイルどおり・既定) / `pixel`(画素どおり) / `16:9` `4:3` `1.5` などの比率。見る人がメニューで選んだものが優先です |
 
 ## CSS で変えられるもの
 

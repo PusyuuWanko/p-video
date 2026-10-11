@@ -1,6 +1,6 @@
 /*****************************************
   *----------------------------------
-  |  ThisScriptVersion: 2.4.0     |
+  |  ThisScriptVersion: 2.5.0     |
   |  © ISAMI ABE                  |
   |  LastUpdate: 2026-10-11       |
   |  License: MIT License         |
@@ -24,6 +24,11 @@
   color    … プレイヤーの色(既定は緑 #22c55e。シークバー・つまみ・再生ボタンのホバー・選択中の印・フォーカスの枠)。
              CSS の色ならどれでも書けます(例 color="#ff3d6e" / color="tomato" / color="rgb(0 170 255)")。
              CSS の --p-video-accent より優先します。色として読めない値は無視して既定の色のままにします。
+  aspect   … 映像の形(任意)。ファイルに書かれた縦横比が狂っている動画のために使います。
+             auto  … ファイルの設定どおり(既定)
+             pixel … 画素の並びどおり(正方形の画素として映す。ブラウザが対応しているときだけ)
+             16:9 / 4:3 / 9:16 / 1.5 など … その比率に合わせて映す
+             見る人が設定メニューの「映像の形」で選んだものは、この属性より優先します(動画ごとに覚えます)。
 
 見た目の調整(置く側のCSSで指定できます):
   p-video { width: 640px; --p-video-ratio: 4 / 3; --p-video-accent: #ff3d6e; --p-video-radius: 12px; }
@@ -54,6 +59,22 @@
   【枠の比率を動画に合わせる作りに戻さないこと】v2.0.0 まではそうしていて、動画ごとに枠の形が
    変わり、並べたときに高さがばらばらになりました。帯で吸収するのが今の約束です。
   【object-fit を cover や fill に変えないこと】cover は映像の端が切れ、fill は歪みます。
+   ただし「映像の形」を選んだときだけは、<video> の箱そのものを選んだ比率の形にして(枠の中に収まる
+   いちばん大きな形・まん中寄せ)、そこへ fill で映します。ファイルの縦横比が狂っているのを、わざと
+   歪ませて正しい形へ戻すためです。帯で吸収する約束は同じで、箱の外が帯になります。
+   【このとき動画の上の操作は .stage で受けること】<video> が枠より小さくなり、帯の上を押しても
+   <video> には届かないためです。
+
+■ 映像の形(ファイルの縦横比が狂っている動画のため)
+  ブラウザは MP4 に書かれた表示用の大きさ(画素の縦横比などを含む)で映像の形を決めます。ここが
+  壊れていると、映像そのものは正しくても縦や横に伸びて映ります。設定メニューの「映像の形」で
+    ファイルどおり … 今まで通り(ブラウザに任せる)
+    画素どおり     … 実際に出てきた映像の画素数(VideoFrame の visibleRect)の比率で映す。
+                     画素の縦横比の指定が狂っている動画はこれで直ります。VideoFrame の無いブラウザでは出しません。
+    16:9 など      … 決まった比率で映す
+    細かく合わせる … つまみで横の伸び縮みを自由に決める
+  から選べます。選んだものは見る人のブラウザに動画の src ごとに覚えます(localStorage。使えなければ覚えないだけ)。
+  【選んだものを置く側の aspect 属性より優先すること】置く側の指定が間違っていても、見る人が直せるようにするためです。
   【動画を canvas へ描き写す作りに戻さないこと】以前はそうしていて、canvas の置き方が外のCSSや
    ずらしの指定に左右され、映像の上下が切れていました。再生中ずっと描き写す分の負荷もかかり、
    一時停止中は何も映りませんでした。
@@ -79,18 +100,27 @@
       fullscreen: "全画面", exitFullscreen: "全画面を終了", pip: "ピクチャーインピクチャー",
       settings: "設定", speed: "再生速度", loop: "ループ", on: "オン", off: "オフ", normal: "標準",
       seek: "再生位置", player: "動画プレイヤー", pipActive: "ピクチャーインピクチャーで再生中",
-      error: "動画を読み込めませんでした", seconds: "{n}秒"
+      error: "動画を読み込めませんでした", seconds: "{n}秒",
+      aspect: "映像の形", aspectAuto: "ファイルどおり", aspectPixel: "画素どおり", aspectFine: "細かく合わせる"
     },
     en: {
       play: "Play", pause: "Pause", mute: "Mute", unmute: "Unmute", volume: "Volume",
       fullscreen: "Full screen", exitFullscreen: "Exit full screen", pip: "Picture-in-picture",
       settings: "Settings", speed: "Speed", loop: "Loop", on: "On", off: "Off", normal: "Normal",
       seek: "Seek", player: "Video player", pipActive: "Playing in picture-in-picture",
-      error: "Could not load the video", seconds: "{n}s"
+      error: "Could not load the video", seconds: "{n}s",
+      aspect: "Aspect ratio", aspectAuto: "As in file", aspectPixel: "Square pixels", aspectFine: "Fine-tune"
     }
   };
 
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  // 「映像の形」で選べる決まった比率。名前はそのまま表示にも使います。
+  const ASPECTS = [["16:9", 16 / 9], ["4:3", 4 / 3], ["1:1", 1], ["3:4", 3 / 4], ["9:16", 9 / 16]];
+  // 「細かく合わせる」のつまみの幅。つまみの値 v に対して比率は 2^v(1/4 〜 4)です。
+  // 伸ばす側と縮める側で同じ手ざわりにするため、比率そのものでなく指数で動かします。
+  const FINE_RANGE = 2;
+  // 見る人が選んだ形を覚えておく localStorage の鍵の頭。後ろに動画の src を付けます。
+  const ASPECT_STORE = "p-video-aspect:";
   // 再生中に操作が止まってから、操作バーとカーソルを隠すまでの時間(ミリ秒)。
   const IDLE_MS = 2500;
   // 動画の上を続けて押したとみなす間隔(ミリ秒)と、左右を続けて押したときに1回で動く秒数。
@@ -136,11 +166,19 @@
     button { font: inherit; color: inherit; }
 
     /* 狭いときの詰め方は、画面の幅ではなくプレイヤー自身の幅で決めます(下の @container)。
-       同じページに大小のプレイヤーが並んでも、それぞれに合った操作バーになります。 */
-    .stage { position: absolute; inset: 0; container-type: inline-size; }
+       同じページに大小のプレイヤーが並んでも、それぞれに合った操作バーになります。
+       「映像の形」で枠の高さも使うため size にしています(.stage は枠いっぱいに置くので、中身で大きさが変わりません)。 */
+    .stage { position: absolute; inset: 0; container-type: size; }
     video {
       position: absolute; inset: 0; width: 100%; height: 100%;
       object-fit: contain; background: var(--p-video-bg); display: block;
+    }
+    /* 映像の形を選んだとき: 箱を --p-video-picture(横÷縦)の形で枠に収まる最大の大きさにし、fill で映します。 */
+    :host([data-aspect]) video {
+      inset: auto; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: min(100cqw, calc(100cqh * var(--p-video-picture)));
+      height: min(100cqh, calc(100cqw / var(--p-video-picture)));
+      object-fit: fill;
     }
 
     .center {
@@ -232,6 +270,9 @@
     .menu button:hover, .menu button:focus-visible { background: rgba(255, 255, 255, 0.12); outline: none; }
     .menu .value { opacity: 0.7; }
     .menu button[aria-checked="true"] .label::before { content: "✓ "; color: var(--p-video-accent); }
+    .menu .fine { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
+    .menu .fine .head { display: flex; justify-content: space-between; gap: 16px; }
+    .menu .fine input { width: 100%; margin: 0; accent-color: var(--p-video-accent); cursor: pointer; }
 
     @container (max-width: 380px) {
       .volume input { display: none; }
@@ -262,14 +303,41 @@
     return h > 0 ? h + ":" + String(m).padStart(2, "0") + ":" + s : m + ":" + s;
   }
 
+  /**
+   * "16:9" "16/9" "1.5" を 横÷縦 の数にします。読めない値・0 以下は 0(=指定なし)です。
+   */
+  function parseRatio(text) {
+    const parts = String(text || "").split(/[:\/]/);
+    let ratio = 0;
+    if (parts.length === 1) {
+      ratio = Number(parts[0]);
+    } else if (parts.length === 2) {
+      ratio = Number(parts[0]) / Number(parts[1]);
+    } else {
+      ratio = 0;
+    }
+    return (Number.isFinite(ratio) && ratio > 0) ? ratio : 0;
+  }
+
+  /**
+   * 比率を表示用の文字にします。決まった比率に近ければその名前("16:9")、そうでなければ "1.85:1"。
+   */
+  function formatRatio(ratio) {
+    const named = ASPECTS.find((entry) => Math.abs(entry[1] - ratio) / ratio < 0.01);
+    return named ? named[0] : ratio.toFixed(2) + ":1";
+  }
+
   class PVideo extends HTMLElement {
     static get observedAttributes() {
-      return ["src", "poster", "loop", "muted", "color"];
+      return ["src", "poster", "loop", "muted", "color", "aspect"];
     }
 
     constructor() {
       super();
       this._built = false;
+      // 映像の形。choice は "auto" / "pixel" / 比率の数(横÷縦)。pixelRatio は実際の画素数の比率(分からなければ 0)。
+      this._aspectChoice = "auto";
+      this._pixelRatio = 0;
       this._idleTimer = 0;
       this._menuView = "main";
       this._tap = null;
@@ -300,6 +368,11 @@
       } else if (name === "src") {
         video.src = this.getAttribute("src") || "";
         this.removeAttribute("data-error");
+        // 形は動画ごとに覚えているので、選び直しを読み込み、画素数も測り直します。
+        this._pixelRatio = 0;
+        this._loadAspect();
+      } else if (name === "aspect") {
+        this._loadAspect();
       } else if (name === "poster") {
         video.poster = this.getAttribute("poster") || "";
       } else if (name === "loop") {
@@ -325,6 +398,91 @@
       } else {
         this.style.removeProperty("--p-video-accent");
         if (color !== "") console.warn('<p-video> color="' + color + '" は色として読めないため、既定の色を使います。');
+      }
+    }
+
+    /**
+     * 映像の形の選択を読み込みます。見る人が覚えさせたもの → aspect 属性 → "auto" の順です。
+     * 【localStorage は try で囲むこと】プライベートウィンドウなどでは読むだけで例外になり、
+     *  プレイヤーごと止まってしまいます。読めなければ覚えていないのと同じに扱います。
+     */
+    _loadAspect() {
+      let saved = null;
+      try {
+        saved = window.localStorage.getItem(ASPECT_STORE + (this.getAttribute("src") || ""));
+      } catch (error) {
+        saved = null;
+      }
+      const text = (saved !== null) ? saved : (this.getAttribute("aspect") || "auto").trim();
+
+      if (text === "auto" || text === "") {
+        this._aspectChoice = "auto";
+      } else if (text === "pixel") {
+        this._aspectChoice = "pixel";
+      } else if (parseRatio(text) > 0) {
+        this._aspectChoice = parseRatio(text);
+      } else {
+        this._aspectChoice = "auto";
+        console.warn('<p-video> aspect="' + text + '" は比率として読めないため、ファイルどおりに映します。');
+      }
+      this._applyAspect();
+      if (this._els && this._els.menu.classList.contains("open")) this._renderMenu();
+    }
+
+    /**
+     * 見る人が選んだ形を、この動画の分として覚えます。覚えられなくても今の表示は変えます。
+     */
+    _chooseAspect(choice) {
+      this._aspectChoice = choice;
+      try {
+        window.localStorage.setItem(ASPECT_STORE + (this.getAttribute("src") || ""), String(choice));
+      } catch (error) {
+        // 覚えられないだけで、表示はこのまま切り替えます。
+      }
+      this._applyAspect();
+    }
+
+    /**
+     * 実際に出てきた映像の画素数を測ります(最初の1コマが出たとき)。
+     * 【videoWidth / videoHeight を使わないこと】あれはファイルに書かれた表示用の大きさで、
+     *  狂っているのはまさにそこです。VideoFrame の visibleRect は画素の並びそのものです。
+     * VideoFrame が無い・作れない(古いブラウザなど)ときは 0 のままにし、「画素どおり」を出しません。
+     */
+    _measurePixels() {
+      this._pixelRatio = 0;
+      if (typeof VideoFrame !== "function") return;
+      try {
+        const frame = new VideoFrame(this._video);
+        const rect = frame.visibleRect;
+        const width = rect ? rect.width : frame.codedWidth;
+        const height = rect ? rect.height : frame.codedHeight;
+        frame.close();
+        this._pixelRatio = (width > 0 && height > 0) ? width / height : 0;
+      } catch (error) {
+        this._pixelRatio = 0;
+      }
+    }
+
+    /**
+     * 選ばれた形を表示へ写します。比率が決まらないとき(auto、または画素数がまだ分からない pixel)は
+     * data-aspect を外し、ふだんの contain(ファイルどおり)で映します。
+     */
+    _applyAspect() {
+      let ratio = 0;
+      if (this._aspectChoice === "auto") {
+        ratio = 0;
+      } else if (this._aspectChoice === "pixel") {
+        ratio = this._pixelRatio;
+      } else {
+        ratio = this._aspectChoice;
+      }
+
+      if (ratio > 0) {
+        this.style.setProperty("--p-video-picture", String(ratio));
+        this.setAttribute("data-aspect", "");
+      } else {
+        this.style.removeProperty("--p-video-picture");
+        this.removeAttribute("data-aspect");
       }
     }
 
@@ -408,6 +566,7 @@
       video.setAttribute("controlslist", "nodownload");
       video.src = this.getAttribute("src") || "";
       this._applyColor();
+      this._loadAspect();
 
       this._bindVideo();
       this._bindControls();
@@ -432,6 +591,12 @@
       const time = () => this._renderTime();
 
       video.addEventListener("loadedmetadata", time);
+      // 最初の1コマが出たら画素数を測ります。メタデータの時点ではまだコマが無く測れません。
+      video.addEventListener("loadeddata", () => {
+        this._measurePixels();
+        this._applyAspect();
+        if (this._els.menu.classList.contains("open")) this._renderMenu();
+      });
       ["play", "pause", "ended", "volumechange", "ratechange"].forEach((type) => video.addEventListener(type, state));
       ["timeupdate", "progress", "durationchange", "seeked"].forEach((type) => video.addEventListener(type, time));
       video.addEventListener("waiting", () => this.setAttribute("data-waiting", ""));
@@ -450,8 +615,13 @@
 
       els.center.addEventListener("click", () => this._toggle());
       els.play.addEventListener("click", () => this._toggle());
-      video.addEventListener("click", (event) => {
-        if (menuOpen()) {
+      // 動画の上の押下は .stage で受けます。映像の形を選ぶと <video> が枠より小さくなり、帯の上の
+      // 押下が <video> に届かないためです。ボタンや操作バーの上の押下はここでは扱いません。
+      const stage = this._root.querySelector(".stage");
+      stage.addEventListener("click", (event) => {
+        if (event.target !== video && event.target !== stage) {
+          // ボタン・操作バー・メニューの上。それぞれの操作に任せます。
+        } else if (menuOpen()) {
           this._closeMenu();
         } else {
           this._tapVideo(event.clientX);
@@ -495,6 +665,11 @@
         const action = button ? button.dataset.action : "";
         if (action === "speed-menu") {
           this._menuView = "speed";
+        } else if (action === "aspect-menu") {
+          this._menuView = "aspect";
+        } else if (action === "aspect") {
+          const value = button.dataset.value;
+          this._chooseAspect((value === "auto" || value === "pixel") ? value : Number(value));
         } else if (action === "back") {
           this._menuView = "main";
         } else if (action === "speed") {
@@ -507,6 +682,17 @@
           this._renderMenu();
           this._focusMenu();
         }
+      });
+      // 「細かく合わせる」のつまみ。動かしている間はメニューを描き直さず、数字と印だけ書き換えます。
+      // 【ここで _renderMenu を呼ばないこと】つまみごと作り直され、つかんでいる途中で離れてしまいます。
+      els.menu.addEventListener("input", (event) => {
+        if (!event.target.matches(".fine input")) return;
+        const ratio = Math.pow(2, Number(event.target.value));
+        this._chooseAspect(ratio);
+        els.menu.querySelector(".fine .value").textContent = formatRatio(ratio);
+        Array.prototype.forEach.call(els.menu.querySelectorAll('[data-action="aspect"]'), (button) => {
+          button.setAttribute("aria-checked", "false");
+        });
       });
       this._root.addEventListener("click", (event) => {
         if (menuOpen() && !els.menu.contains(event.target)) this._closeMenu();
@@ -609,7 +795,8 @@
      * 【場所が変わったら数え直すこと】左→右と素早く押したとき、戻ってすぐ進むような動きになるためです。
      */
     _tapVideo(clientX) {
-      const rect = this._video.getBoundingClientRect();
+      // 左右の 1/3 は枠で測ります(映像の形を選ぶと <video> の箱は枠より小さくなるため)。
+      const rect = this._root.querySelector(".stage").getBoundingClientRect();
       const x = (rect.width > 0) ? (clientX - rect.left) / rect.width : 0.5;
       const now = Date.now();
       const last = this._tap;
@@ -697,13 +884,51 @@
         '<button type="button" data-action="' + action + '" ' + (extra || 'role="menuitem"') + ">" +
         '<span class="label">' + label + "</span>" + (value === "" ? "" : '<span class="value">' + value + "</span>") + "</button>";
 
+      const choice = this._aspectChoice;
+      const fileRatio = (video.videoWidth > 0 && video.videoHeight > 0) ? video.videoWidth / video.videoHeight : 0;
+      const aspectItem = (value, label, ratio, checked) =>
+        item("aspect", label, ratio > 0 ? formatRatio(ratio) : "", 'role="menuitemradio" data-value="' + value + '" aria-checked="' + checked + '"');
+      let aspectLabel;
+      if (choice === "auto") {
+        aspectLabel = this._t("aspectAuto");
+      } else if (choice === "pixel") {
+        aspectLabel = this._t("aspectPixel");
+      } else {
+        aspectLabel = formatRatio(choice);
+      }
+
       if (this._menuView === "speed") {
         this._els.menu.innerHTML = item("back", "‹ " + this._t("speed"), "") + SPEEDS.map((rate) =>
           item("speed", speedLabel(rate), "", 'role="menuitemradio" data-value="' + rate + '" aria-checked="' + (video.playbackRate === rate) + '"')
         ).join("");
+      } else if (this._menuView === "aspect") {
+        // つまみの位置は、今の比率(決まっていなければファイルの比率、それも無ければ 1:1)から決めます。
+        let current;
+        if (typeof choice === "number") {
+          current = choice;
+        } else if (choice === "pixel" && this._pixelRatio > 0) {
+          current = this._pixelRatio;
+        } else if (fileRatio > 0) {
+          current = fileRatio;
+        } else {
+          current = 1;
+        }
+        const fineValue = Math.min(FINE_RANGE, Math.max(-FINE_RANGE, Math.log2(current)));
+        this._els.menu.innerHTML =
+          item("back", "‹ " + this._t("aspect"), "") +
+          aspectItem("auto", this._t("aspectAuto"), fileRatio, choice === "auto") +
+          (this._pixelRatio > 0 ? aspectItem("pixel", this._t("aspectPixel"), this._pixelRatio, choice === "pixel") : "") +
+          ASPECTS.map((entry) =>
+            aspectItem(String(entry[1]), entry[0], 0, typeof choice === "number" && Math.abs(entry[1] - choice) / choice < 0.01)
+          ).join("") +
+          '<div class="fine"><span class="head"><span class="label">' + this._t("aspectFine") + "</span>" +
+          '<span class="value">' + formatRatio(current) + "</span></span>" +
+          '<input type="range" min="' + (-FINE_RANGE) + '" max="' + FINE_RANGE + '" step="0.01" value="' + fineValue.toFixed(2) + '"' +
+          ' aria-label="' + this._t("aspectFine") + '"></div>';
       } else {
         this._els.menu.innerHTML =
           item("speed-menu", this._t("speed"), speedLabel(video.playbackRate) + " ›") +
+          item("aspect-menu", this._t("aspect"), aspectLabel + " ›") +
           item("loop", this._t("loop"), video.loop ? this._t("on") : this._t("off"), 'role="menuitemcheckbox" aria-checked="' + video.loop + '"');
       }
     }
