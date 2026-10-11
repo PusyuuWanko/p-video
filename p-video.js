@@ -1,8 +1,8 @@
 /*****************************************
   *----------------------------------
-  |  ThisScriptVersion: 2.3.0     |
+  |  ThisScriptVersion: 2.4.0     |
   |  © ISAMI ABE                  |
-  |  LastUpdate: 2026-10-09       |
+  |  LastUpdate: 2026-10-11       |
   |  License: MIT License         |
   |  (^U^)p-video.js              |
 ----------------------------------*
@@ -34,6 +34,11 @@
 
 キーボード(プレイヤーにフォーカスがあるとき):
   Space・K 再生/一時停止  ← → 5秒戻る/進む  ↑ ↓ 音量  M 消音  F 全画面
+
+マウス・タッチ(動画の上):
+  1回押す … 再生/一時停止
+  続けて押す … 左の1/3は10秒戻る・右の1/3は10秒進む・まん中は全画面
+                左右は押し続けるほど10秒ずつ重ねて動きます(3回で20秒、4回で30秒)。
 
 表示する言葉:
   置いたページ(または近い祖先)の lang が ja で始まれば日本語、それ以外は英語です。
@@ -74,20 +79,25 @@
       fullscreen: "全画面", exitFullscreen: "全画面を終了", pip: "ピクチャーインピクチャー",
       settings: "設定", speed: "再生速度", loop: "ループ", on: "オン", off: "オフ", normal: "標準",
       seek: "再生位置", player: "動画プレイヤー", pipActive: "ピクチャーインピクチャーで再生中",
-      error: "動画を読み込めませんでした"
+      error: "動画を読み込めませんでした", seconds: "{n}秒"
     },
     en: {
       play: "Play", pause: "Pause", mute: "Mute", unmute: "Unmute", volume: "Volume",
       fullscreen: "Full screen", exitFullscreen: "Exit full screen", pip: "Picture-in-picture",
       settings: "Settings", speed: "Speed", loop: "Loop", on: "On", off: "Off", normal: "Normal",
       seek: "Seek", player: "Video player", pipActive: "Playing in picture-in-picture",
-      error: "Could not load the video"
+      error: "Could not load the video", seconds: "{n}s"
     }
   };
 
   const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
   // 再生中に操作が止まってから、操作バーとカーソルを隠すまでの時間(ミリ秒)。
   const IDLE_MS = 2500;
+  // 動画の上を続けて押したとみなす間隔(ミリ秒)と、左右を続けて押したときに1回で動く秒数。
+  const DOUBLE_MS = 350;
+  const SKIP_SECONDS = 10;
+  // 戻る/進むの印を出しておく時間(ミリ秒)。最後に押してから数えます。
+  const SKIP_BADGE_MS = 700;
 
   const ICONS = {
     play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.6-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z"/></svg>',
@@ -149,6 +159,15 @@
       max-width: calc(100% - 24px); padding: 8px 14px; border-radius: 999px; background: rgba(0, 0, 0, 0.65);
       font-size: 13px; text-align: center; display: none; pointer-events: none;
     }
+    .skip {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      padding: 8px 14px; border-radius: 999px; background: rgba(0, 0, 0, 0.55);
+      font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap;
+      opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+    .skip.back { left: 8%; }
+    .skip.forward { right: 8%; }
+    .skip.show { opacity: 1; }
     .spinner {
       position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px;
       border: 4px solid rgba(255, 255, 255, 0.25); border-top-color: #fff; border-radius: 50%;
@@ -253,6 +272,8 @@
       this._built = false;
       this._idleTimer = 0;
       this._menuView = "main";
+      this._tap = null;
+      this._skipTimer = 0;
     }
 
     connectedCallback() {
@@ -266,6 +287,7 @@
       // ページから外されたら止めます。外れた要素の動画は、見えなくても音が鳴り続けるためです。
       if (this._video) this._video.pause();
       clearTimeout(this._idleTimer);
+      clearTimeout(this._skipTimer);
     }
 
     attributeChangedCallback(name) {
@@ -335,6 +357,8 @@
           '<div class="spinner"></div>' +
           '<div class="notice pip"></div>' +
           '<div class="notice error"></div>' +
+          '<div class="skip back" aria-hidden="true"></div>' +
+          '<div class="skip forward" aria-hidden="true"></div>' +
           '<button class="center" type="button"></button>' +
           '<div class="bar">' +
             '<div class="seek" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
@@ -360,7 +384,8 @@
       this._els = {
         center: $(".center"), play: $(".play"), mute: $(".mute"), volume: $(".volume input"),
         time: $(".time"), seek: $(".seek"), played: $(".played"), buffered: $(".buffered"), thumb: $(".thumb"),
-        settings: $(".settings"), pip: $(".btn.pip"), fs: $(".fs"), menu: $(".menu")
+        settings: $(".settings"), pip: $(".btn.pip"), fs: $(".fs"), menu: $(".menu"),
+        skipBack: $(".skip.back"), skipForward: $(".skip.forward")
       };
       const els = this._els;
 
@@ -425,14 +450,13 @@
 
       els.center.addEventListener("click", () => this._toggle());
       els.play.addEventListener("click", () => this._toggle());
-      video.addEventListener("click", () => {
+      video.addEventListener("click", (event) => {
         if (menuOpen()) {
           this._closeMenu();
         } else {
-          this._toggle();
+          this._tapVideo(event.clientX);
         }
       });
-      video.addEventListener("dblclick", () => this._toggleFullscreen());
 
       els.mute.addEventListener("click", () => {
         video.muted = !video.muted;
@@ -570,6 +594,70 @@
       } else {
         video.pause();
       }
+    }
+
+    /**
+     * 動画の上のクリック(タップ)。DOUBLE_MS 以内に同じ場所が続けて押されたら「続けて押した」とみなし、
+     *   左の 1/3 … SKIP_SECONDS 秒戻る(押し続ける限り重ねて戻る)
+     *   右の 1/3 … SKIP_SECONDS 秒進む(同上)
+     *   まん中   … 全画面の切り替え(2回目だけ。3回目は新しい1回目として扱う)
+     * 1回目は待たずに再生/一時停止を切り替え、2回目でその切り替えを取り消します。
+     * 【dblclick イベントに戻さないこと】スマホのブラウザにはダブルタップで dblclick を出さないものがあり、
+     *  戻る・進むが効かなくなります。3回目以降も数えられず、続けて重ねて戻ることができません。
+     * 【1回目を DOUBLE_MS 待ってから再生/一時停止する形にしないこと】1回押すたびに反応が遅れます。
+     *  2回目の取り消しで一瞬止まって見えるのは、その遅れより小さい代償として受け入れています。
+     * 【場所が変わったら数え直すこと】左→右と素早く押したとき、戻ってすぐ進むような動きになるためです。
+     */
+    _tapVideo(clientX) {
+      const rect = this._video.getBoundingClientRect();
+      const x = (rect.width > 0) ? (clientX - rect.left) / rect.width : 0.5;
+      const now = Date.now();
+      const last = this._tap;
+      let zone;
+      if (x < 1 / 3) {
+        zone = "back";
+      } else if (x > 2 / 3) {
+        zone = "forward";
+      } else {
+        zone = "middle";
+      }
+      const repeated = !!last && last.zone === zone && (now - last.time) <= DOUBLE_MS;
+      const count = repeated ? last.count + 1 : 1;
+
+      if (count === 1) {
+        this._toggle();
+        this._tap = { zone: zone, time: now, count: count };
+      } else if (zone === "middle") {
+        this._toggle();
+        this._toggleFullscreen();
+        this._tap = null;
+      } else {
+        if (count === 2) this._toggle();
+        this._skip(zone === "back" ? -SKIP_SECONDS : SKIP_SECONDS, (count - 1) * SKIP_SECONDS);
+        this._tap = { zone: zone, time: now, count: count };
+      }
+    }
+
+    /**
+     * delta 秒だけ動かし、押した側に「ここまでで total 秒動いた」印を出します。
+     * 長さがまだ分からない(読み込み前)ときは動かしません。先へ進むと 0 秒へ飛んでしまうためです。
+     */
+    _skip(delta, total) {
+      const video = this._video;
+      const els = this._els;
+      if (!Number.isFinite(video.duration)) return;
+
+      video.currentTime = Math.min(video.duration, Math.max(0, video.currentTime + delta));
+      this._renderTime();
+
+      const amount = this._t("seconds").replace("{n}", String(total));
+      const badge = (delta < 0) ? els.skipBack : els.skipForward;
+      const other = (delta < 0) ? els.skipForward : els.skipBack;
+      badge.textContent = (delta < 0) ? "« " + amount : amount + " »";
+      badge.classList.add("show");
+      other.classList.remove("show");
+      clearTimeout(this._skipTimer);
+      this._skipTimer = setTimeout(() => badge.classList.remove("show"), SKIP_BADGE_MS);
     }
 
     _isFullscreen() {
