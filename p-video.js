@@ -1,8 +1,8 @@
 /*****************************************
   *----------------------------------
-  |  ThisScriptVersion: 2.6.0     |
+  |  ThisScriptVersion: 2.6.1     |
   |  © ISAMI ABE                  |
-  |  LastUpdate: 2026-10-11       |
+  |  LastUpdate: 2026-10-12       |
   |  License: MIT License         |
   |  (^U^)p-video.js              |
 ----------------------------------*
@@ -142,7 +142,7 @@
 
   // 情報の画面に出す版と著作権。【版は先頭の ThisScriptVersion と必ず同じにすること】
   // ずれると、見る人が知らせてくれた版と実際の中身が食い違い、どの版の不具合か分からなくなります。
-  const VERSION = "2.6.0";
+  const VERSION = "2.6.1";
   const COPYRIGHT = "© ISAMI ABE";
   const LICENSE = "MIT License";
   const HOMEPAGE = "https://github.com/PusyuuWanko/p-video";
@@ -325,11 +325,19 @@
       .bar { padding: 22px 6px 4px; }
       .menu { bottom: 48px; right: 6px; }
     }
+    /* 狭くなったら、時間 → 音量・設定 の順に隠し、最後はボタンを小さくします。
+       【再生・PiP・全画面は隠さないこと】PiP を 280px 以下で隠していたため、30vw で並べるページでは
+        ウィンドウを少し狭めるだけでボタンが見当たらなくなりました。3つなら 120px 程度でも収まります。 */
     @container (max-width: 280px) {
-      .time, .btn.pip { display: none; }
+      .time { display: none; }
     }
     @container (max-width: 190px) {
       .btn.mute, .btn.settings { display: none; }
+    }
+    @container (max-width: 130px) {
+      .btn { width: 26px; height: 26px; }
+      .btn svg { width: 18px; height: 18px; }
+      .bar { padding: 18px 4px 3px; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { transition: none !important; animation-duration: 0s !important; }
@@ -662,16 +670,17 @@
       this._els = {
         center: $(".center"), play: $(".play"), mute: $(".mute"), volume: $(".volume input"),
         time: $(".time"), seek: $(".seek"), played: $(".played"), buffered: $(".buffered"), thumb: $(".thumb"),
-        settings: $(".settings"), pip: $(".btn.pip"), fs: $(".fs"), menu: $(".menu"),
+        settings: $(".settings"), pip: $(".btn.pip"), fs: $(".fs"), menu: $(".menu"), bar: $(".bar"),
         skipBack: $(".skip.back"), skipForward: $(".skip.forward")
       };
       const els = this._els;
 
       this._renderLabels();
-      els.pip.hidden = !(document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function");
+      els.pip.hidden = !this._pipSupported();
 
       // 属性を <video> へ写します。
-      // 右クリックの「動画を保存」と標準のダウンロードボタンは出しません(以前の canvas 版と同じ程度の抑止)。
+      // 標準のダウンロードボタンは出しません(以前の canvas 版と同じ程度の抑止)。
+      // 右クリックの「動画を保存」は、PiP ボタンを出せるブラウザでだけ止めます(_bindVideo を参照)。
       video.preload = this.getAttribute("preload") || "metadata";
       video.poster = this.getAttribute("poster") || "";
       video.loop = this.hasAttribute("loop");
@@ -719,7 +728,18 @@
       video.addEventListener("loadstart", () => this.removeAttribute("data-error"));
       video.addEventListener("enterpictureinpicture", () => this.setAttribute("data-pip", ""));
       video.addEventListener("leavepictureinpicture", () => this.removeAttribute("data-pip"));
-      video.addEventListener("contextmenu", (event) => event.preventDefault());
+      // Safari の旧方式は出入りとも webkitpresentationmodechanged の1つで知らせます。
+      video.addEventListener("webkitpresentationmodechanged", () => {
+        this.toggleAttribute("data-pip", video.webkitPresentationMode === "picture-in-picture");
+      });
+      // 右クリックのメニューは、PiP ボタンを出せるブラウザでだけ止めます。
+      // 【PiP ボタンを出せないブラウザでは止めないこと】Firefox は PiP をページから呼ぶ仕組みが無く、
+      //  標準のメニューの「ピクチャーインピクチャー」が唯一の入り口です。止めると PiP を使う手段が無くなります。
+      //  そのブラウザでは「動画を保存」も出ますが、URL は通信を見れば分かるので、ここの抑止はもともと
+      //  手軽な保存を減らす程度のものです。迷ったら PiP を使えることの方を優先してください。
+      if (this._pipSupported()) {
+        video.addEventListener("contextmenu", (event) => event.preventDefault());
+      }
       // 情報の画面を開いているあいだは、通信や読み込みの出来事のたびに数字を書き換えます。
       // 【この登録は上の data-waiting・data-error の付け外しより後に置くこと】同じ出来事では登録順に
       //  呼ばれるため、先に置くと付け外しの前の状態を書いてしまい、表示が1つ遅れます。
@@ -739,9 +759,28 @@
       // 動画の上の押下は .stage で受けます。映像の形を選ぶと <video> が枠より小さくなり、帯の上の
       // 押下が <video> に届かないためです。ボタンや操作バーの上の押下はここでは扱いません。
       const stage = this._root.querySelector(".stage");
+      const onVideo = (target) => target === video || target === stage;
+      // 押し始めが動画の上だったか。click は「押し始めも離した所も動画の上」のときだけ動画の操作にします。
+      // 【click の対象だけで判断しないこと】click の対象は押した要素と離した要素の共通の祖先になるため、
+      //  シークバーや音量のつまみを動かして動画の上で離すと .stage が対象になり、再生中に一時停止していました。
+      // 【隠れた操作バーの場所を押したときも動画の操作にしないこと】隠れたバーは押下を通すので押し始めは
+      //  <video> ですが、押した瞬間にバーが出て離すのはボタンの上になり、同じく .stage が対象になります。
+      //  見る人はバーを操作するつもりなので、この押下はバーを出すだけにします。
+      // 迷ったら「動画の操作にしない」側へ倒すこと。取りこぼしは押し直せば済みますが、勝手に止まるのは困るためです。
+      // (この判断は操作バーを出す処理より先に行う必要があります。.stage の受け取りは要素そのものの受け取りより先なので、
+      //  ここで見る data-idle はまだ押す前の状態です。)
+      this._pressOnVideo = false;
+      stage.addEventListener("pointerdown", (event) => {
+        const bar = els.bar.getBoundingClientRect();
+        const onHiddenBar = this.hasAttribute("data-idle") && event.clientY >= bar.top && event.clientY <= bar.bottom
+          && event.clientX >= bar.left && event.clientX <= bar.right;
+        this._pressOnVideo = onVideo(event.target) && !onHiddenBar;
+      });
       stage.addEventListener("click", (event) => {
-        if (event.target !== video && event.target !== stage) {
-          // ボタン・操作バー・メニューの上。それぞれの操作に任せます。
+        const pressed = this._pressOnVideo;
+        this._pressOnVideo = false;
+        if (!onVideo(event.target) || !pressed) {
+          // ボタン・操作バー・メニューの上、または押し始めがそこだった。それぞれの操作に任せます。
         } else if (menuOpen()) {
           this._closeMenu();
         } else {
@@ -762,10 +801,7 @@
       document.addEventListener("fullscreenchange", () => this._renderState());
       document.addEventListener("webkitfullscreenchange", () => this._renderState());
 
-      els.pip.addEventListener("click", () => {
-        const request = (document.pictureInPictureElement === video) ? document.exitPictureInPicture() : video.requestPictureInPicture();
-        Promise.resolve(request).catch(() => {});
-      });
+      els.pip.addEventListener("click", () => this._togglePip());
 
       els.settings.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -976,6 +1012,32 @@
       other.classList.remove("show");
       clearTimeout(this._skipTimer);
       this._skipTimer = setTimeout(() => badge.classList.remove("show"), SKIP_BADGE_MS);
+    }
+
+    /**
+     * PiP が使えるか。標準の方式(Chrome・Edge・新しい Safari)か、Safari の旧方式のどちらかがあれば使えます。
+     * どちらも無いブラウザ(Firefox など)ではボタンを出しません。押しても何も起きないボタンになるためです。
+     * 【pictureInPictureEnabled が false のときは標準の方式を使えないと扱うこと】iframe の allow で
+     *  止められているときなどで、requestPictureInPicture を呼んでも必ず失敗します。
+     */
+    _pipSupported() {
+      const video = this._video;
+      const standard = !!document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function";
+      const webkit = typeof video.webkitSetPresentationMode === "function" && typeof video.webkitSupportsPresentationMode === "function"
+        && video.webkitSupportsPresentationMode("picture-in-picture");
+      return standard || webkit;
+    }
+
+    _togglePip() {
+      const video = this._video;
+      if (document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function") {
+        const request = (document.pictureInPictureElement === video) ? document.exitPictureInPicture() : video.requestPictureInPicture();
+        Promise.resolve(request).catch(() => {});
+      } else if (typeof video.webkitSetPresentationMode === "function") {
+        video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
+      } else {
+        // _pipSupported が false ならボタンは出ていないので、ここへは来ません。
+      }
     }
 
     _isFullscreen() {
