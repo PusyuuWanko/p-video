@@ -1,8 +1,8 @@
 /*****************************************
   *----------------------------------
-  |  ThisScriptVersion: 2.6.1     |
+  |  ThisScriptVersion: 2.6.2     |
   |  © ISAMI ABE                  |
-  |  LastUpdate: 2026-10-12       |
+  |  LastUpdate: 2026-10-13       |
   |  License: MIT License         |
   |  (^U^)p-video.js              |
 ----------------------------------*
@@ -208,6 +208,9 @@
     video {
       position: absolute; inset: 0; width: 100%; height: 100%;
       object-fit: contain; background: var(--p-video-bg); display: block;
+      /* iOS の長押しで出る吹き出し(保存など)を出しません。iOS は長押しで contextmenu を送らないため、
+         下の contextmenu の抑止だけでは止まりません。 */
+      -webkit-touch-callout: none;
     }
     /* 映像の形を選んだとき: 箱を --p-video-picture(横÷縦)の形で枠に収まる最大の大きさにし、fill で映します。 */
     :host([data-aspect]) video {
@@ -732,14 +735,29 @@
       video.addEventListener("webkitpresentationmodechanged", () => {
         this.toggleAttribute("data-pip", video.webkitPresentationMode === "picture-in-picture");
       });
-      // 右クリックのメニューは、PiP ボタンを出せるブラウザでだけ止めます。
-      // 【PiP ボタンを出せないブラウザでは止めないこと】Firefox は PiP をページから呼ぶ仕組みが無く、
-      //  標準のメニューの「ピクチャーインピクチャー」が唯一の入り口です。止めると PiP を使う手段が無くなります。
-      //  そのブラウザでは「動画を保存」も出ますが、URL は通信を見れば分かるので、ここの抑止はもともと
-      //  手軽な保存を減らす程度のものです。迷ったら PiP を使えることの方を優先してください。
-      if (this._pipSupported()) {
-        video.addEventListener("contextmenu", (event) => event.preventDefault());
-      }
+      // 標準のメニュー(「動画を保存」などが並ぶもの)を止めます。
+      //   指やペンの長押しで出たもの … いつも止める
+      //   マウスの右クリックで出たもの … PiP ボタンを出せるブラウザでだけ止める
+      // 【マウスの右クリックは、PiP ボタンを出せないブラウザでは止めないこと】パソコンの Firefox は PiP を
+      //  ページから呼ぶ仕組みが無く、標準のメニューの「ピクチャーインピクチャー」が唯一の入り口です。
+      //  止めると PiP を使う手段が無くなります。そのブラウザでは右クリックの「動画を保存」も出ますが、
+      //  URL は通信を見れば分かるので、ここの抑止はもともと手軽な保存を減らす程度のものです。
+      //  迷ったら PiP を使えることの方を優先してください。
+      // 【長押しをこの例外に含めないこと】スマホの Firefox やアプリ内のブラウザ(PiP をページから呼べない)
+      //  では、長押しのメニューに PiP は無く「動画をダウンロード」だけが出ます。例外に含めると、
+      //  長押しひとつで保存できてしまいます(10-13 に起きた問題)。
+      // 何で出たメニューかは、直前の押し始めの種類で見分けます。contextmenu そのものが pointerType を
+      // 持たないブラウザがあるためです。分からないとき(キーボードのメニューキーなど)はマウスと同じに扱います。
+      let pressType = "";
+      video.addEventListener("pointerdown", (event) => { pressType = event.pointerType || ""; });
+      video.addEventListener("contextmenu", (event) => {
+        const type = event.pointerType || pressType;
+        if (type === "touch" || type === "pen" || this._pipSupported()) {
+          event.preventDefault();
+        } else {
+          // マウスの右クリックで、PiP を標準のメニューからしか使えないブラウザ。止めません(上の理由)。
+        }
+      });
       // 情報の画面を開いているあいだは、通信や読み込みの出来事のたびに数字を書き換えます。
       // 【この登録は上の data-waiting・data-error の付け外しより後に置くこと】同じ出来事では登録順に
       //  呼ばれるため、先に置くと付け外しの前の状態を書いてしまい、表示が1つ遅れます。
